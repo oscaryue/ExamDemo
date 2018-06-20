@@ -22,6 +22,7 @@ public class ServerNode {
     }
 
     public void addTask(TaskInfo task, int consumption) {
+        task.setNodeId(mId);
         synchronized (mTaskList) {
             mTaskList.add(new TaskConsumption(task, consumption));
         }
@@ -54,5 +55,15 @@ public class ServerNode {
             }
         }
         return false;
+    }
+
+    public int getConsumption() {
+        int consumption = 0;
+        synchronized (mTaskList) {
+            for (int i = 0; i < mTaskList.size(); i++) {
+                consumption += mTaskList.get(i).getConsumption();
+            }
+        }
+        return consumption;
     }
 }

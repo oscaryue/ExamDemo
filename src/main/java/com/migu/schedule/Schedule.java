@@ -4,6 +4,7 @@ package com.migu.schedule;
 import com.migu.schedule.constants.ReturnCodeKeys;
 import com.migu.schedule.info.TaskInfo;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,7 +71,6 @@ public class Schedule {
 
 
     public int addTask(int taskId, int consumption) {
-        // TODO 方法未实现
         if (taskId <= 0) {
             return ReturnCodeKeys.E009;
         }
@@ -94,7 +94,6 @@ public class Schedule {
 
 
     public int deleteTask(int taskId) {
-        // TODO 方法未实现
         if (taskId <= 0) {
             return ReturnCodeKeys.E009;
         }
@@ -120,8 +119,35 @@ public class Schedule {
         if (threshold <= 0) {
             return ReturnCodeKeys.E002;
         }
-        
-        return ReturnCodeKeys.E000;
+
+        // find out if the consumption between 2 servers is over the threshold
+        int result = 0;
+        for (int i = 0; i < mServerNodeList.size(); i++) {
+            for (int j = i + 1; j < mServerNodeList.size(); j++) {
+                int tmp = Math.abs(mServerNodeList.get(i).getConsumption() - mServerNodeList.get(j).getConsumption());
+                if (tmp > result) {
+                    result = tmp;
+                }
+            }
+        }
+
+        // if result is greater than threshold we don't need to do anything
+        if (result > threshold) {
+            return ReturnCodeKeys.E014;
+        }
+
+        // scheduling
+        int count = mPendingTasks.size() / mServerNodeList.size();
+        int i, j = 0;
+        for (i = 0; i < mServerNodeList.size(); i++) {
+            mServerNodeList.get(i).getTaskList().add(mPendingTasks.remove(j));
+            if (mServerNodeList.size() >= count)
+                break;
+        }
+
+        mPendingTasks.clear();
+
+        return ReturnCodeKeys.E013;
     }
 
 
@@ -143,7 +169,7 @@ public class Schedule {
             for (int i = 0; i < mServerNodeList.size(); i++) {
                 ArrayList<TaskConsumption> taskList = mServerNodeList.get(i).getTaskList();
                 for (int j = 0; j < taskList.size(); j++) {
-                    tasks.add(taskList.get(i).getTask());
+                    tasks.add(taskList.get(j).getTask());
                 }
             }
         }
@@ -179,7 +205,17 @@ public class Schedule {
         }
 
         synchronized (mServerNodeList) {
-            mServerNodeList.add(node);
+            if (mServerNodeList.size() == 0) {
+                mServerNodeList.add(node);
+            } else {
+                for (int i = 0; i < mServerNodeList.size(); i++) {
+                    if (node.getId() < mServerNodeList.get(i).getId()) {
+                        mServerNodeList.add(i, node);
+                        return;
+                    }
+                }
+                mServerNodeList.add(node);
+            }
         }
     }
 
@@ -190,6 +226,12 @@ public class Schedule {
 
         task.setNodeId(-1);
         synchronized (mPendingTasks) {
+            for (int i = 0; i < mPendingTasks.size(); i++) {
+                if (task.getTaskId() < mPendingTasks.get(i).getTask().getTaskId()) {
+                    mPendingTasks.add(i, new TaskConsumption(task, consumption));
+                    return;
+                }
+            }
             mPendingTasks.add(new TaskConsumption(task, consumption));
         }
     }
